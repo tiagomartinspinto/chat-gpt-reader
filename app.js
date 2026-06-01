@@ -13,6 +13,8 @@ const state = {
   theme: getInitialTheme(),
 };
 
+const MIN_SAFE_INDEX_VERSION = 2;
+
 const els = {
   archiveMeta: document.querySelector("#archiveMeta"),
   searchInput: document.querySelector("#searchInput"),
@@ -45,6 +47,7 @@ async function init() {
   try {
     const response = await fetchIndex();
     state.data = await response.json();
+    validateIndexVersion(state.data);
     state.items = buildItems(state.data);
     updateMeta();
     applyStateToControls();
@@ -175,7 +178,7 @@ function buildItems(data) {
       starred: Boolean(conversation.isStarred),
       archived: Boolean(conversation.isArchived),
       model: conversation.model || "",
-      messageCount: conversation.visibleMessageCount || conversation.messageCount || 0,
+      messageCount: conversation.visibleMessageCount ?? conversation.messageCount ?? 0,
       text,
       roleTexts,
       snippet: conversation.snippet || text.slice(0, 240),
@@ -214,7 +217,7 @@ function updateMeta() {
   const stats = state.data.stats || {};
   const pieces = [
     `${formatNumber(stats.conversationCount || 0)} chats`,
-    `${formatNumber(stats.visibleMessageCount || stats.messageCount || 0)} messages`,
+    `${formatNumber(stats.visibleMessageCount ?? stats.messageCount ?? 0)} messages`,
   ];
   if (stats.pdfPageCount) {
     pieces.push(`${formatNumber(stats.pdfPageCount)} PDF pages`);
@@ -366,7 +369,7 @@ function renderResults() {
 function renderSelected() {
   const selected = state.items.find((item) => item.id === state.selectedId);
   els.technicalToggle.hidden = !selected || selected.type !== "conversation";
-  els.technicalToggle.textContent = state.showTechnical ? "Hide Technical" : "Technical";
+  els.technicalToggle.textContent = state.showTechnical ? "Hide Metadata" : "Metadata";
 
   if (!selected) {
     els.selectedMeta.textContent = "Ready";
@@ -391,7 +394,7 @@ function renderConversation(item) {
   ].filter(Boolean).join(" - ") || "Conversation";
   els.selectedTitle.textContent = conversation.title || "Untitled conversation";
   els.selectedSummary.textContent = [
-    `${formatNumber(conversation.visibleMessageCount || conversation.messageCount || 0)} visible messages`,
+    `${formatNumber(conversation.visibleMessageCount ?? conversation.messageCount ?? 0)} visible messages`,
     conversation.isStarred ? "starred" : "",
     conversation.isArchived ? "archived" : "",
   ].filter(Boolean).join(" - ");
@@ -406,18 +409,18 @@ function renderConversation(item) {
   `;
   fragment.append(stats);
 
-  const messages = (conversation.messages || []).filter((message) => {
-    if (state.showTechnical) {
-      return true;
-    }
-    return isDisplayMessage(message);
-  });
+  if (state.showTechnical) {
+    fragment.append(renderTechnicalSummary(conversation));
+  }
+
+  const messages = (conversation.messages || []).filter(isDisplayMessage);
 
   for (const message of messages) {
     const article = document.createElement("article");
-    const technical = !isDisplayMessage(message);
-    article.className = `message ${technical ? "technical" : escapeAttr(message.role)}`;
-    const attachments = (message.attachments || []).map((name) => `<span class="pill">${escapeHtml(name)}</span>`).join("");
+    article.className = `message ${escapeAttr(message.role)}`;
+    const attachments = safeAttachmentLabels(message.attachments)
+      .map((name) => `<span class="pill">${escapeHtml(name)}</span>`)
+      .join("");
     article.innerHTML = `
       <div class="message-meta">
         <strong>${escapeHtml(roleLabel(message.role))}</strong>
@@ -432,6 +435,39 @@ function renderConversation(item) {
   }
 
   els.contentPane.replaceChildren(fragment);
+}
+
+function renderTechnicalSummary(conversation) {
+  const messages = conversation.messages || [];
+  const hiddenCount = messages.filter((message) => !isDisplayMessage(message)).length;
+  const section = document.createElement("section");
+  section.className = "technical-summary";
+
+  const rows = messages.map((message) => {
+    const attachmentCount = Array.isArray(message.attachments) ? message.attachments.length : 0;
+    return `
+      <li>
+        <span>${escapeHtml(roleLabel(message.role))}</span>
+        <span>${escapeHtml(message.contentType || "unknown")}</span>
+        ${message.createTime ? `<span>${escapeHtml(formatDateTime(message.createTime))}</span>` : ""}
+        ${message.model ? `<span>${escapeHtml(message.model)}</span>` : ""}
+        ${attachmentCount ? `<span>${formatNumber(attachmentCount)} attachment${attachmentCount === 1 ? "" : "s"}</span>` : ""}
+        <span>${isDisplayMessage(message) ? "visible" : "metadata only"}</span>
+      </li>
+    `;
+  }).join("");
+
+  section.innerHTML = `
+    <div class="technical-heading">
+      <h3>Metadata</h3>
+      <span class="pill">${formatNumber(hiddenCount)} metadata-only</span>
+    </div>
+    <div class="technical-types">
+      ${Object.entries(conversation.contentTypes || {}).map(([type, count]) => `<span class="pill">${escapeHtml(type)} ${formatNumber(count)}</span>`).join("")}
+    </div>
+    <ol class="technical-list">${rows}</ol>
+  `;
+  return section;
 }
 
 function renderDocument(item) {
@@ -450,8 +486,25 @@ function renderDocument(item) {
 }
 
 function isDisplayMessage(message) {
-  return (message.role === "user" || message.role === "assistant")
+  return message.visible !== false
+    && (message.role === "user" || message.role === "assistant")
     && ["text", "multimodal_text", "code", "execution_output"].includes(message.contentType || "text");
+}
+
+function validateIndexVersion(data) {
+  const version = Number(data?.version || 0);
+  if (version < MIN_SAFE_INDEX_VERSION) {
+    throw new Error("This search index was built by an older privacy model. Rebuild data/search-index.json with the current build script.");
+  }
+}
+
+function safeAttachmentLabels(attachments) {
+  if (!Array.isArray(attachments)) {
+    return [];
+  }
+  return attachments
+    .map((name) => String(name || "").replaceAll("\\", "/").split("/").filter(Boolean).pop() || "")
+    .filter((name) => name && name !== "." && name !== "..");
 }
 
 function makeSnippet(item, haystack, terms) {
