@@ -1,0 +1,25 @@
+# Private export material
+*.zip
+*.tar
+*.tar.gz
+*.jsonl
+*.pdf
+conversations.json
+chat.html
+chatgpt-export*/
+chatgpt-backup*/
+exports/
+!exports/.gitkeep
+backups/
+data/*.json
+!data/.gitkeep
+data/private/
+private/
+.local/
+.env
+.env.*
+reader-server.*.log
+
+# Local runtime noise
+__pycache__/
+*.pyc

@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chat Archive Search</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Search and results">
+      <header class="sidebar-header">
+        <div>
+          <p class="eyebrow">Local Archive</p>
+          <h1>Chat Search</h1>
+          <p id="archiveMeta" class="muted">Loading index...</p>
+        </div>
+        <div class="header-actions">
+          <button id="themeToggle" class="icon-button" type="button" title="Toggle dark mode" aria-label="Toggle dark mode">
+            <span id="themeIcon" aria-hidden="true">&#9680;</span>
+          </button>
+          <button id="densityToggle" class="icon-button" type="button" title="Toggle compact view" aria-label="Toggle compact view">
+            <span aria-hidden="true">Aa</span>
+          </button>
+        </div>
+      </header>
+
+      <section class="search-panel" aria-label="Search controls">
+        <label for="searchInput">Search conversations</label>
+        <div class="search-box">
+          <input id="searchInput" type="search" placeholder="Try a project, person, error, or phrase" autocomplete="off">
+          <button id="clearSearch" class="icon-button" type="button" title="Clear search" aria-label="Clear search">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="filters" aria-label="Filters">
+        <label>
+          Source
+          <select id="sourceFilter">
+            <option value="all">All sources</option>
+            <option value="conversation">Chats</option>
+            <option value="pdf">PDF pages</option>
+          </select>
+        </label>
+        <label>
+          Role
+          <select id="roleFilter">
+            <option value="all">All roles</option>
+            <option value="user">User only</option>
+            <option value="assistant">Assistant only</option>
+          </select>
+        </label>
+        <label>
+          Sort
+          <select id="sortSelect">
+            <option value="relevance">Relevance</option>
+            <option value="newest">Newest</option>
+            <option value="oldest">Oldest</option>
+            <option value="title">Title</option>
+          </select>
+        </label>
+        <label class="check-row">
+          <input id="starredOnly" type="checkbox">
+          <span>Starred</span>
+        </label>
+      </section>
+
+      <div class="result-status" id="resultStatus" aria-live="polite"></div>
+      <ol id="results" class="results" aria-label="Search results"></ol>
+    </aside>
+
+    <main class="viewer" aria-label="Selected item">
+      <header class="viewer-header">
+        <div class="viewer-title">
+          <p id="selectedMeta" class="eyebrow">Ready</p>
+          <h2 id="selectedTitle">Select a conversation</h2>
+          <p id="selectedSummary" class="muted">Search on the left, then open a result here.</p>
+        </div>
+        <div class="viewer-actions">
+          <button id="copyLink" class="icon-button" type="button" title="Copy link" aria-label="Copy link">
+            <span aria-hidden="true">#</span>
+          </button>
+          <button id="technicalToggle" class="text-button" type="button">Technical</button>
+        </div>
+      </header>
+      <section id="contentPane" class="content-pane" aria-live="polite"></section>
+    </main>
+  </div>
+
+  <template id="emptyStateTemplate">
+    <div class="empty-state">
+      <h3>No matching results</h3>
+      <p>Try fewer words, switch the role filter, or clear the starred filter.</p>
+    </div>
+  </template>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
